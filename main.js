@@ -52,7 +52,7 @@ function initScene(center = [0, 0]) {
 
     // Load satellite imagery
     const loader = new THREE.TextureLoader();
-    const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},18/1024x1024?access_token=${mapboxgl.accessToken}`;
+    const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},19.5/1024x1024?access_token=${mapboxgl.accessToken}`;
     
     loader.load(url, texture => {
         const plane = new THREE.Mesh(
@@ -372,7 +372,7 @@ function getUserLocationAndInit() {
 
 // Initialize
 // getUserLocationAndInit();
-initScene([2.2945,48.8584]);
+initScene([-122.4442,37.7354]);
 
 
 // Event listeners
