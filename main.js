@@ -362,17 +362,17 @@ function getUserLocationAndInit() {
             initScene([longitude, latitude]);
         }, () => {
             console.warn('Geolocation failed. Using Paris coordinates.');
-            initScene([48.8584, 2.2945]);
+            initScene([2.2945,48.8584]);
         });
     } else {
         console.warn('Geolocation not supported. Using Paris coordinates.');
-        initScene([48.8584, 2.2945]);
+        initScene([2.2945,48.8584]);
     }
 }
 
 // Initialize
 // getUserLocationAndInit();
-initScene([48.8584, 2.2945]);
+initScene([2.2945,48.8584]);
 
 
 // Event listeners
