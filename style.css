@@ -30,7 +30,7 @@ body {
 }
 
 .control-panel {
-    width: 280px;
+    width: 300px;
     background: white;
     border-left: 1px solid #ddd;
     display: flex;

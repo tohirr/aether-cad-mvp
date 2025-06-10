@@ -56,7 +56,7 @@ function initScene(center = [0, 0]) {
     
     loader.load(url, texture => {
         const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(50, 50),
+            new THREE.PlaneGeometry(100, 100),
             new THREE.MeshLambertMaterial({ map: texture })
         );
         plane.rotation.x = -Math.PI / 2;
@@ -73,7 +73,7 @@ function initScene(center = [0, 0]) {
             new THREE.PlaneGeometry(100, 100),
             new THREE.MeshLambertMaterial({ color: 0x90EE90 })
         );
-        plane.rotation.x = -Math.PI / 2;
+        // plane.rotation.x = -Math.PI / 2;
         plane.receiveShadow = true;
         scene.add(plane);
         state.plane = plane;
@@ -271,8 +271,10 @@ function setupDrawing() {
 
         // Add new point
         state.points.push(point);
+        console.log(point);
+        
         const sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(0.8, 12, 8), 
+            new THREE.SphereGeometry(0.5, 12, 8), 
             new THREE.MeshLambertMaterial({ color: 0xff6b6b })
         );
         sphere.position.copy(point);
@@ -322,6 +324,9 @@ function extrudePolygon(height) {
                 shape.lineTo(p.x, p.z);
             }
         });
+
+        console.log(shape);
+        
         
         const extrudeSettings = {
             depth: height,
@@ -337,6 +342,9 @@ function extrudePolygon(height) {
         
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.y = 0;
+        mesh.rotation.x = -Math.PI / 2;
+        // mesh.rotation.y = Math.PI/2;
+
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
