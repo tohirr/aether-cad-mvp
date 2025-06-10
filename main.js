@@ -341,8 +341,8 @@ function extrudePolygon(height) {
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.y = 0;
-        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.y = height;
+        mesh.rotation.x = Math.PI/2;
         // mesh.rotation.y = Math.PI/2;
 
         mesh.castShadow = true;
