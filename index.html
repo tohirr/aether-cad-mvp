@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether CAD with Mapbox</title>
+    <link href="style.css" rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+   
+</head>
+<body>
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="panel-title">Aether CAD - Building Designer</div>
+            <div class="draw-tools">
+                <div class="tool-section">
+                    <div class="section-title">1. Draw Building Outline</div>
+                    <div class="draw-status" id="drawStatus">Click "Start Drawing" to begin</div>
+                    <button class="btn-primary" id="startDraw">Start Drawing</button>
+                    <div class="instruction-text">
+                        Click to place points on the satellite image. Click near the first point to close the shape.
+                    </div>
+                </div>
+                <div class="tool-section">
+                    <div class="section-title">2. Set Building Height</div>
+                    <div class="form-group">
+                        <label class="form-label">Height (meters)</label>
+                        <input type="number" class="form-input" id="heightInput" value="5" min="0.1" step="0.1">
+                    </div>
+                    <button class="btn-primary" id="extrude">Create 3D Building</button>
+                </div>
+                <div class="tool-section">
+                    <div class="section-title">3. Scene Controls</div>
+                    <button class="btn-secondary" id="reset">Reset Scene</button>
+                    <div class="instruction-text">
+                        • Right-click + drag to orbit around<br>
+                        • Mouse wheel to zoom in/out<br>
+                        • Left-click to place points when drawing<br>
+                        • Middle-click + drag to pan
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="canvas-container">
+            <div id="three-canvas"></div>
+        </div>
+       
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
+
