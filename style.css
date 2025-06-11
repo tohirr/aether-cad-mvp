@@ -342,6 +342,7 @@ body {
 
 #three-canvas canvas {
     display: block; /* Remove extra space below canvas */
+    cursor: crosshair;
 }
 
 .draw-status {
@@ -475,3 +476,4 @@ body {
     height: 25px; /* Adjust as needed */
     vertical-align: middle;
 }
+

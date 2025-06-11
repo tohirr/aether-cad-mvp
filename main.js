@@ -28,8 +28,6 @@ let state = {
     }
 };
 
-
-
 function initScene(center = [0, 0]) {
     state.currentMapCenter = center; // Store the initial center
     updateProjectAddress(center); // Get and display address
@@ -126,11 +124,6 @@ function updateCameraPosition() {
 function setupControls() {
     const canvas = state.renderer.domElement;
     const controls = state.controls;
-    const customCursor = document.getElementById('customCursor'); // Get the custom cursor element
-
-    // Hide default cursor on the canvas
-    canvas.style.cursor = 'none';
-
 
     canvas.addEventListener('mousedown', e => {
         e.preventDefault();
@@ -234,29 +227,6 @@ function setupControls() {
         e.preventDefault();
         controls.isMouseDown = false;
         lastTouchDistance = 0;
-    });
-
-    canvas.addEventListener('mousemove', e => {
-        const dx = e.clientX - controls.mouseX;
-        const dy = e.clientY - controls.mouseY;
-
-        // Move the custom cursor
-        if (customCursor && state.isDrawing) {
-            customCursor.style.left = `${e.clientX}px`;
-            customCursor.style.top = `${e.clientY}px`;
-        }
-
-        if (controls.isMouseDown) {
-            // ... rotation logic ...
-        } else if (controls.isPanning) {
-            // ... panning logic ...
-        } else if (state.isDrawing && state.points.length > 0) {
-            // Update preview lines while drawing
-            updatePreviewLines(e);
-        }
-
-        controls.mouseX = e.clientX;
-        controls.mouseY = e.clientY;
     });
 }
 
@@ -532,8 +502,8 @@ function extrudeShape(shapeMesh, height) {
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         const material = new THREE.MeshLambertMaterial({ 
             color: 0x4a90e2, 
-            transparent: true, 
-            opacity: 0.8 
+            // transparent: true, 
+            opacity: 1
         });
         
         const mesh = new THREE.Mesh(geometry, material);
@@ -672,8 +642,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners for UI buttons
     const startDrawButton = document.getElementById('startDraw');
-    const customCursor = document.getElementById('customCursor'); // Get it again here for direct access
-
     startDrawButton.addEventListener('click', () => {
         if (!state.plane) {
             alert('Please wait for the map to load before drawing');
@@ -688,13 +656,8 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = 'Drawing mode active - Click to place points';
             status.className = 'draw-status active';
 
-            // Show custom cursor
-            if (customCursor) {
-                customCursor.classList.add('active');
-                state.renderer.domElement.style.cursor = 'none'; // Hide native cursor on canvas
-            }
-
             // Clear any existing drawing lines and points when starting new drawing
+            // These were not cleared when drawing finished, so clear them now for a new drawing
             state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
             state.lineMeshes = [];
             state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
@@ -707,15 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = `Drawing stopped - ${state.points.length} points placed`;
             status.className = 'draw-status inactive';
             clearPreviewLines(); // Clear all preview lines when stopping drawing
-
-            // Hide custom cursor
-            if (customCursor) {
-                customCursor.classList.remove('active');
-                state.renderer.domElement.style.cursor = 'default'; // Restore native cursor
-            }
         }
     });
-  
 
     document.getElementById('extrude').addEventListener('click', () => {
         const height = parseFloat(document.getElementById('heightInput').value);
