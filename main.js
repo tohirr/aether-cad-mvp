@@ -286,7 +286,7 @@ function createFilledShape(points) {
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2; // Lay flat on ground
+        mesh.rotation.x = Math.PI/2;
         mesh.position.y = 0.05; // Slightly above ground plane
         mesh.receiveShadow = true;
         
