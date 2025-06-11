@@ -3,53 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aether CAD with Mapbox</title>
-    <link href="style.css" rel="stylesheet">
+    <title>Aether CAD Solar Design Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
-   
 </head>
 <body>
-    <div class="main-container">
-        <div class="control-panel">
-            <div class="panel-title">Aether CAD - Building Designer</div>
-            <div class="draw-tools">
-                <div class="tool-section">
-                    <div class="section-title">1. Draw Building Outline</div>
-                    <div class="draw-status" id="drawStatus">Click "Start Drawing" to begin</div>
-                    <button class="btn-primary" id="startDraw">Start Drawing</button>
-                    <div class="instruction-text">
-                        Click to place points on the satellite image. Click near the first point to close the shape.
+    <div class="dashboard-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Aether CAD</h2>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="material-icons">chevron_left</i>
+                </button>
+            </div>
+            
+            <div class="project-info">
+                <h3>Current Project Location</h3>
+                <p id="projectAddress">Fetching address...</p>
+                <div class="project-meta">
+                    <span class="lead-status">Lead</span>
+                    <span>Created 9 September 2024</span>
+                </div>
+            </div>
+            <div class="section">
+                <h4>Work area</h4>
+                <div class="work-area-buttons">
+                    <button>Design requests</button>
+                </div>
+            </div>
+            <div class="section">
+                <h4>Quick AI design <i class="material-icons info-icon">info</i></h4>
+                <button class="add-site-model">
+                    <i class="material-icons">add</i>
+                    <span>New Site Model</span>
+                </button>
+                <div class="site-models" id="siteModelsContainer">
+                    </div>
+            </div>
+            <div class="section solar-design-section">
+                <h4>Solar Design 1</h4>
+                <div class="solar-stats">
+                    <p>12.60 kW</p>
+                    <p>0 kWh/yr</p>
+                </div>
+                <button class="add-solar-design">
+                    <i class="material-icons">add</i>
+                    <span>New Solar Design</span>
+                </button>
+            </div>
+        </aside>
+        <main class="main-content">
+            <header class="navbar">
+                <div class="navbar-left">
+                    <i class="material-icons">search</i>
+                    <i class="material-icons">folder_open</i>
+                    <i class="material-icons">cloud_upload</i>
+                </div>
+                <div class="navbar-center">
+                    <button class="main-mode-button">Main Mode</button>
+                </div>
+                <div class="navbar-right">
+                    <i class="material-icons">grid_on</i>
+                    <i class="material-icons">palette</i>
+                    <div class="system-summary">
+                        <span>System Summary</span>
+                        <i class="material-icons">arrow_drop_down</i>
+                    </div>
+                    <button class="simulate-button">Simulate</button>
+                </div>
+            </header>
+            <div class="map-view">
+                <div id="three-canvas"></div>
+                <div id="drawStatus" class="draw-status inactive">Map loading...</div>
+
+                <div class="map-overlay-tools">
+                    <div class="map-compass">
+                        <i class="fas fa-compass"></i>
+                        <span>N</span>
+                    </div>
+                    <div class="map-scale">
+                        <i class="material-icons">zoom_in</i>
+                        <i class="material-icons">zoom_out</i>
                     </div>
                 </div>
-                <div class="tool-section">
-                    <div class="section-title">2. Set Building Height</div>
-                    <div class="form-group">
-                        <label class="form-label">Height (meters)</label>
-                        <input type="number" class="form-input" id="heightInput" value="5" min="0.1" step="0.1">
+                <div class="map-bottom-bar">
+                    <div class="map-toolbar-left">
+                        <button id="startDraw" class="icon-button">
+                            <i class="material-icons">create</i> </button>
+                        <input type="number" id="heightInput" placeholder="Height (m)" value="10" min="1">
+                        <button id="extrude">Extrude</button>
+                        <button id="reset">Reset Scene</button>
                     </div>
-                    <button class="btn-primary" id="extrude">Create 3D Building</button>
-                </div>
-                <div class="tool-section">
-                    <div class="section-title">3. Scene Controls</div>
-                    <button class="btn-secondary" id="reset">Reset Scene</button>
-                    <div class="instruction-text">
-                        • Right-click + drag to orbit around<br>
-                        • Mouse wheel to zoom in/out<br>
-                        • Left-click to place points when drawing<br>
-                        • Middle-click + drag to pan
+                    <div class="map-toolbar-right">
+                        <div class="mapbox-logo">
+                            <img src="mapbox-logo.png" alt="Mapbox">
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="canvas-container">
-            <div id="three-canvas"></div>
-        </div>
-       
+        </main>
     </div>
+
     <script src="main.js"></script>
 </body>
 </html>
-

@@ -10,7 +10,9 @@ let state = {
     lineMeshes: [],
     shapeMeshes: [], // New: for filled shapes
     previewLine: null,
+    closingPreviewLine: null, // New: for showing connection back to first point
     isDrawing: false,
+    currentMapCenter: [-122.4442, 37.7354], // Default to SF, will be updated by geolocation
     controls: {
         isMouseDown: false,
         isPanning: false,
@@ -27,7 +29,15 @@ let state = {
 };
 
 function initScene(center = [0, 0]) {
+    state.currentMapCenter = center; // Store the initial center
+    updateProjectAddress(center); // Get and display address
+    generateSiteModelThumbnails(center); // Generate initial site model images
+
     const container = document.getElementById('three-canvas');
+    if (!container) {
+        console.error('Three.js canvas container not found!');
+        return;
+    }
     const scene = new THREE.Scene();
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -54,11 +64,11 @@ function initScene(center = [0, 0]) {
 
     // Load satellite imagery
     const loader = new THREE.TextureLoader();
-    const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},19.5/1024x1024?access_token=${mapboxgl.accessToken}`;
+    const mapboxStaticUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},19.5/1024x1024?access_token=${mapboxgl.accessToken}`;
     
-    loader.load(url, texture => {
+    loader.load(mapboxStaticUrl, texture => {
         const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100),
+            new THREE.PlaneGeometry(100, 100), // Adjust size based on desired scale
             new THREE.MeshLambertMaterial({ map: texture })
         );
         plane.rotation.x = -Math.PI / 2;
@@ -66,7 +76,7 @@ function initScene(center = [0, 0]) {
         scene.add(plane);
         state.plane = plane;
         
-        document.getElementById('drawStatus').textContent = 'Map loaded - Click "Start Drawing" to begin';
+        document.getElementById('drawStatus').textContent = 'Map loaded - Click pen icon to begin drawing';
     }, undefined, error => {
         console.error('Error loading satellite image:', error);
         const plane = new THREE.Mesh(
@@ -78,7 +88,7 @@ function initScene(center = [0, 0]) {
         scene.add(plane);
         state.plane = plane;
         
-        document.getElementById('drawStatus').textContent = 'Fallback mode - Click "Start Drawing" to begin';
+        document.getElementById('drawStatus').textContent = 'Fallback mode - Click pen icon to begin drawing';
     });
 
     state.scene = scene;
@@ -88,9 +98,11 @@ function initScene(center = [0, 0]) {
     setupDrawing();
 
     window.addEventListener('resize', () => {
-        camera.aspect = container.clientWidth / container.clientHeight;
+        const newWidth = container.clientWidth;
+        const newHeight = container.clientHeight;
+        camera.aspect = newWidth / newHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setSize(newWidth, newHeight);
     });
 
     animate();
@@ -143,8 +155,8 @@ function setupControls() {
             
             updateCameraPosition();
         } else if (state.isDrawing && state.points.length > 0) {
-            // Update preview line while drawing
-            updatePreviewLine(e);
+            // Update preview lines while drawing
+            updatePreviewLines(e);
         }
 
         controls.mouseX = e.clientX;
@@ -215,8 +227,8 @@ function setupControls() {
     });
 }
 
-// New function to update the preview line
-function updatePreviewLine(event) {
+// Enhanced function to update both preview lines
+function updatePreviewLines(event) {
     if (!state.plane || state.points.length === 0) return;
 
     const raycaster = new THREE.Raycaster();
@@ -231,38 +243,75 @@ function updatePreviewLine(event) {
     
     if (intersects.length > 0) {
         const mousePoint = intersects[0].point;
-        const lastPoint = state.points[state.points.length - 1];
         
-        // Remove old preview line
-        if (state.previewLine) {
-            state.scene.remove(state.previewLine);
+        // Clear existing preview lines
+        clearPreviewLines();
+        
+        // 1. Line from last point to mouse (current drawing line)
+        if (state.points.length >= 1) {
+            const lastPoint = state.points[state.points.length - 1];
+            const currentLinePoints = [
+                new THREE.Vector3(lastPoint.x, 0.15, lastPoint.z),
+                new THREE.Vector3(mousePoint.x, 0.15, mousePoint.z)
+            ];
+            
+            const currentGeometry = new THREE.BufferGeometry().setFromPoints(currentLinePoints);
+            const currentMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xffaa00, 
+                linewidth: 2,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            state.previewLine = new THREE.Line(currentGeometry, currentMaterial);
+            state.scene.add(state.previewLine);
         }
         
-        // Create new preview line
-        const points = [
-            new THREE.Vector3(lastPoint.x, 0.15, lastPoint.z),
-            new THREE.Vector3(mousePoint.x, 0.15, mousePoint.z)
-        ];
-        
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ 
-            color: 0xffaa00, 
-            linewidth: 2,
-            transparent: true,
-            opacity: 0.7
-        });
-        
-        state.previewLine = new THREE.Line(geometry, material);
-        state.scene.add(state.previewLine);
+        // 2. Dashed line from mouse back to first point (closing line)
+        if (state.points.length >= 2) {
+            const firstPoint = state.points[0];
+            const closingLinePoints = [
+                new THREE.Vector3(mousePoint.x, 0.15, mousePoint.z),
+                new THREE.Vector3(firstPoint.x, 0.15, firstPoint.z)
+            ];
+            
+            const closingGeometry = new THREE.BufferGeometry().setFromPoints(closingLinePoints);
+            const closingMaterial = new THREE.LineDashedMaterial({
+                color: 0x888888,
+                linewidth: 1,
+                dashSize: 1,
+                gapSize: 0.5,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            state.closingPreviewLine = new THREE.Line(closingGeometry, closingMaterial);
+            state.closingPreviewLine.computeLineDistances(); // Required for dashed lines
+            state.scene.add(state.closingPreviewLine);
+        }
     }
 }
 
-// New function to clear preview line
-function clearPreviewLine() {
+// Enhanced function to clear all preview lines
+function clearPreviewLines() {
     if (state.previewLine) {
         state.scene.remove(state.previewLine);
         state.previewLine = null;
     }
+    if (state.closingPreviewLine) {
+        state.scene.remove(state.closingPreviewLine);
+        state.closingPreviewLine = null;
+    }
+}
+
+// Legacy function for backward compatibility
+function updatePreviewLine(event) {
+    updatePreviewLines(event);
+}
+
+// Legacy function for backward compatibility
+function clearPreviewLine() {
+    clearPreviewLines();
 }
 
 // New function to create filled shape
@@ -304,9 +353,12 @@ function createFilledShape(points) {
 function setupDrawing() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-    const threshold = 3.0;
+    const threshold = 3.0; // Distance threshold for closing a polygon
 
     state.renderer.domElement.addEventListener('click', event => {
+        // Prevent drawing/extrusion if sidebar toggle is clicked or other UI elements
+        if (event.target.closest('#sidebarToggle, #startDraw, #extrude, #reset, #heightInput')) return;
+
         // Handle shape clicking for extrusion when not in drawing mode
         if (!state.isDrawing) {
             const rect = state.renderer.domElement.getBoundingClientRect();
@@ -346,31 +398,33 @@ function setupDrawing() {
         // Check if clicking near the first point to close polygon
         if (state.points.length > 2 && point.distanceTo(state.points[0]) < threshold) {
             state.isDrawing = false;
-            clearPreviewLine();
+            clearPreviewLines(); // Clear all preview lines
             
-            document.getElementById('startDraw').textContent = 'Start Drawing';
-            document.getElementById('startDraw').style.background = '#3498db';
-            document.getElementById('drawStatus').textContent = `Shape completed - ${state.points.length} points. Click shape to extrude or start new drawing.`;
+            document.getElementById('startDraw').classList.remove('active');
+            document.getElementById('drawStatus').textContent = `Shape completed - ${state.points.length} points. Click shape to extrude or click pen to draw new.`;
             document.getElementById('drawStatus').className = 'draw-status inactive';
             
             // Add final line to close the polygon
             if (state.points.length > 2) {
-                const finalPoints = [...state.points, state.points[0]];
-                const geometry = new THREE.BufferGeometry().setFromPoints(
-                    finalPoints.map(p => new THREE.Vector3(p.x, 0.1, p.z))
-                );
-                
+                // Remove the last line segment that was dynamically updated
                 if (state.lineMeshes.length > 0) {
                     state.scene.remove(state.lineMeshes[state.lineMeshes.length - 1]);
                     state.lineMeshes.pop();
                 }
-                
-                const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ 
+
+                // Add the final closing line segment explicitly
+                const lastPoint = state.points[state.points.length - 1];
+                const firstPoint = state.points[0];
+                const closingLineGeometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(lastPoint.x, 0.1, lastPoint.z),
+                    new THREE.Vector3(firstPoint.x, 0.1, firstPoint.z)
+                ]);
+                const closingLine = new THREE.Line(closingLineGeometry, new THREE.LineBasicMaterial({ 
                     color: 0xff6b6b, 
                     linewidth: 2 
                 }));
-                state.scene.add(line);
-                state.lineMeshes.push(line);
+                state.scene.add(closingLine);
+                state.lineMeshes.push(closingLine);
 
                 // Create filled shape
                 const filledShape = createFilledShape(state.points);
@@ -380,8 +434,10 @@ function setupDrawing() {
                 }
             }
             
-            // Reset points for next drawing
+            // Reset points and point meshes for next drawing
             state.points = [];
+            state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.pointMeshes = [];
             return;
         }
 
@@ -393,21 +449,20 @@ function setupDrawing() {
             new THREE.MeshLambertMaterial({ color: 0xff6b6b })
         );
         sphere.position.copy(point);
-        sphere.position.y = 0.5;
+        sphere.position.y = 0.5; // Slightly above ground
         sphere.castShadow = true;
         state.scene.add(sphere);
         state.pointMeshes.push(sphere);
 
-        // Update line
+        // Update line (only add new segment from previous point to current)
         if (state.points.length > 1) {
-            if (state.lineMeshes.length > 0) {
-                state.scene.remove(state.lineMeshes[state.lineMeshes.length - 1]);
-                state.lineMeshes.pop();
-            }
+            const lastPoint = state.points[state.points.length - 2]; // Second to last
+            const currentPoint = state.points[state.points.length - 1]; // Last
             
-            const geometry = new THREE.BufferGeometry().setFromPoints(
-                state.points.map(p => new THREE.Vector3(p.x, 0.1, p.z))
-            );
+            const geometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(lastPoint.x, 0.1, lastPoint.z),
+                new THREE.Vector3(currentPoint.x, 0.1, currentPoint.z)
+            ]);
             const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ 
                 color: 0xff6b6b, 
                 linewidth: 2 
@@ -449,8 +504,9 @@ function extrudeShape(shapeMesh, height) {
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.y = height;
-        mesh.rotation.x = Math.PI/2;
+        // Extrusion happens along the Z-axis of the shape, so we need to adjust
+        mesh.position.y = 0; // The base of the extrusion is at Y=0
+        mesh.rotation.x = Math.PI/2; // Orient it correctly with the ground plane
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
@@ -470,11 +526,19 @@ function extrudeShape(shapeMesh, height) {
     }
 }
 
+// This function is still present for the 'Extrude' button,
+// but the primary extrusion will happen by clicking shapes.
 function extrudePolygon(height) {
     if (state.points.length < 3) {
         alert('Need at least 3 points to create a building');
         return;
     }
+    // Remove temporary drawing lines and points
+    state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
+    state.lineMeshes = [];
+    state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+    state.pointMeshes = [];
+    clearPreviewLines(); // Ensure preview lines are removed
 
     try {
         const shape = new THREE.Shape();
@@ -499,14 +563,15 @@ function extrudePolygon(height) {
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.y = height;
+        mesh.position.y = 0; // Base of extrusion
         mesh.rotation.x = Math.PI/2;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
         state.scene.add(mesh);
-        
+
         document.getElementById('drawStatus').textContent = `Building created! Height: ${height}m`;
+        state.points = []; // Clear points after extruding
     } catch (error) {
         console.error('Error creating building:', error);
         alert('Error creating building. Try drawing a simpler shape.');
@@ -518,60 +583,193 @@ function animate() {
     state.renderer.render(state.scene, state.camera);
 }
 
+// --- New and Modified Functions for Address and Site Models ---
+
+async function updateProjectAddress(coordinates) {
+    const [lon, lat] = coordinates;
+    const projectAddressElement = document.getElementById('projectAddress');
+    projectAddressElement.textContent = 'Fetching address...';
+
+    try {
+        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${mapboxgl.accessToken}`);
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+            projectAddressElement.textContent = data.features[0].place_name;
+        } else {
+            projectAddressElement.textContent = `Address not found for ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        }
+    } catch (error) {
+        console.error('Error fetching address:', error);
+        projectAddressElement.textContent = `Error fetching address for ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+}
+
+function generateSiteModelThumbnails(baseCoordinates) {
+    const siteModelsContainer = document.getElementById('siteModelsContainer');
+    siteModelsContainer.innerHTML = ''; // Clear existing thumbnails
+
+    // Generate a few slightly offset coordinates for different "models"
+    const offsets = [
+        [0, 0],       // Original location
+        [0.0005, 0],  // Slightly east
+        [0, 0.0005],  // Slightly north
+        [-0.0005, 0.0005] // Slightly NW
+    ];
+
+    offsets.forEach((offset, index) => {
+        const [lonOffset, latOffset] = offset;
+        const modelLon = baseCoordinates[0] + lonOffset;
+        const modelLat = baseCoordinates[1] + latOffset;
+
+        const thumbnailUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${modelLon},${modelLat},18/150x100?access_token=${mapboxgl.accessToken}`;
+        
+        const thumbDiv = document.createElement('div');
+        thumbDiv.className = 'site-model-thumb';
+        thumbDiv.innerHTML = `
+            <img src="${thumbnailUrl}" alt="Site Model ${index + 1}">
+            <span>Site Model ${index + 1}</span>
+        `;
+        siteModelsContainer.appendChild(thumbDiv);
+    });
+}
+
 function getUserLocationAndInit() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(position => {
             const { longitude, latitude } = position.coords;
             initScene([longitude, latitude]);
-        }, () => {
-            console.warn('Geolocation failed. Using San Francisco coordinates.');
-            initScene([-122.4442, 37.7354]);
+        }, (error) => {
+            console.warn('Geolocation failed:', error);
+            document.getElementById('projectAddress').textContent = 'Geolocation denied/failed. Using default location.';
+            initScene([-122.4442, 37.7354]); // San Francisco coordinates
         });
     } else {
         console.warn('Geolocation not supported. Using San Francisco coordinates.');
-        initScene([-122.4442, 37.7354]);
+        document.getElementById('projectAddress').textContent = 'Geolocation not supported. Using default location.';
+        initScene([-122.4442, 37.7354]); // San Francisco coordinates
     }
 }
 
-// Initialize
-getUserLocationAndInit();
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    getUserLocationAndInit();
 
-// Event listeners
-document.getElementById('startDraw').addEventListener('click', () => {
-    if (!state.plane) {
-        alert('Please wait for the map to load before drawing');
-        return;
-    }
-    
-    state.isDrawing = !state.isDrawing;
-    const btn = document.getElementById('startDraw');
-    const status = document.getElementById('drawStatus');
-    
-    if (state.isDrawing) {
-        btn.textContent = 'Stop Drawing';
-        btn.style.background = '#e74c3c';
-        status.textContent = 'Drawing mode active - Click to place points';
-        status.className = 'draw-status active';
-    } else {
-        btn.textContent = 'Start Drawing';
-        btn.style.background = '#3498db';
-        status.textContent = `Drawing stopped - ${state.points.length} points placed`;
-        status.className = 'draw-status inactive';
-        clearPreviewLine(); // Clear preview line when stopping drawing
-    }
-});
+    // Event listeners for UI buttons
+    const startDrawButton = document.getElementById('startDraw');
+    startDrawButton.addEventListener('click', () => {
+        if (!state.plane) {
+            alert('Please wait for the map to load before drawing');
+            return;
+        }
+        
+        state.isDrawing = !state.isDrawing;
+        const status = document.getElementById('drawStatus');
+        
+        if (state.isDrawing) {
+            startDrawButton.classList.add('active');
+            status.textContent = 'Drawing mode active - Click to place points';
+            status.className = 'draw-status active';
 
-document.getElementById('extrude').addEventListener('click', () => {
-    const height = parseFloat(document.getElementById('heightInput').value);
-    if (height > 0) {
-        extrudePolygon(height);
-    } else {
-        alert('Please enter a valid height greater than 0');
-    }
-});
+            // Clear any existing drawing lines and points when starting new drawing
+            state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.lineMeshes = [];
+            state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.pointMeshes = [];
+            state.points = []; // Clear points
+            clearPreviewLines();
 
-document.getElementById('reset').addEventListener('click', () => {
-    if (confirm('Reset the entire scene? This will clear all your work.')) {
-        location.reload();
-    }
+        } else {
+            startDrawButton.classList.remove('active');
+            status.textContent = `Drawing stopped - ${state.points.length} points placed`;
+            status.className = 'draw-status inactive';
+            clearPreviewLines(); // Clear all preview lines when stopping drawing
+        }
+    });
+
+    document.getElementById('extrude').addEventListener('click', () => {
+        const height = parseFloat(document.getElementById('heightInput').value);
+        if (height > 0) {
+            // If in drawing mode and points exist, extrude the current polygon
+            if (state.isDrawing && state.points.length >= 3) {
+                // Manually close the polygon if extrude is clicked during drawing
+                const lastPoint = state.points[state.points.length - 1];
+                const firstPoint = state.points[0];
+                const closingLineGeometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(lastPoint.x, 0.1, lastPoint.z),
+                    new THREE.Vector3(firstPoint.x, 0.1, firstPoint.z)
+                ]);
+                const closingLine = new THREE.Line(closingLineGeometry, new THREE.LineBasicMaterial({ 
+                    color: 0xff6b6b, 
+                    linewidth: 2 
+                }));
+                state.scene.add(closingLine);
+                state.lineMeshes.push(closingLine);
+
+                const filledShape = createFilledShape(state.points);
+                if (filledShape) {
+                    state.scene.add(filledShape);
+                    state.shapeMeshes.push(filledShape);
+                    extrudeShape(filledShape, height); // Extrude the newly created shape
+                }
+                
+                // Reset drawing state
+                state.isDrawing = false;
+                startDrawButton.classList.remove('active');
+                clearPreviewLines();
+                state.points = [];
+                state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+                state.pointMeshes = [];
+                state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
+                state.lineMeshes = [];
+
+            } else if (!state.isDrawing) {
+                alert('Please draw a shape first (click the pen icon) or click on an existing flat shape to extrude it.');
+            } else {
+                alert('Please draw at least 3 points to form a polygon before extruding.');
+            }
+        } else {
+            alert('Please enter a valid height greater than 0');
+        }
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+        if (confirm('Reset the entire scene? This will clear all your work.')) {
+            // Remove all custom meshes from the scene
+            state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.pointMeshes = [];
+            state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.lineMeshes = [];
+            state.shapeMeshes.forEach(mesh => state.scene.remove(mesh));
+            state.shapeMeshes = [];
+            
+            // Also remove any extruded buildings
+            state.scene.children.filter(obj => obj.geometry && obj.geometry.type === 'ExtrudeGeometry')
+                          .forEach(obj => state.scene.remove(obj));
+
+            state.points = [];
+            state.isDrawing = false;
+            clearPreviewLines();
+            startDrawButton.classList.remove('active');
+            document.getElementById('drawStatus').textContent = 'Scene reset. Click pen icon to begin drawing.';
+            document.getElementById('drawStatus').className = 'draw-status inactive';
+        }
+    });
+
+    // Sidebar toggle functionality
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        // Update toggle icon based on state
+        const icon = sidebarToggle.querySelector('i');
+        if (sidebar.classList.contains('collapsed')) {
+            icon.textContent = 'chevron_right';
+        } else {
+            icon.textContent = 'chevron_left';
+        }
+        // Trigger a resize event to ensure Three.js canvas adjusts
+        window.dispatchEvent(new Event('resize'));
+    });
 });
