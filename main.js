@@ -8,7 +8,7 @@ let state = {
     points: [],
     pointMeshes: [],
     lineMeshes: [],
-    shapeMeshes: [], // For both flat and extruded shapes
+    shapeMeshes: [], 
     previewLine: null,
     closingPreviewLine: null,
     isDrawing: false,
@@ -29,9 +29,9 @@ let state = {
 };
 
 function initScene(center = [0, 0]) {
-    state.currentMapCenter = center; // Store the initial center
-    updateProjectAddress(center); // Get and display address
-    generateSiteModelThumbnails(center); // Generate initial site model images
+    state.currentMapCenter = center; 
+    updateProjectAddress(center); 
+    generateSiteModelThumbnails(center); 
 
     const container = document.getElementById('three-canvas');
     if (!container) {
@@ -65,9 +65,7 @@ function initScene(center = [0, 0]) {
 
     // Load satellite imagery
     const loader = new THREE.TextureLoader();
-    // Mapbox Static Images API URL format:
-    // https://api.mapbox.com/styles/v1/{username}/{style_id}/static/{lon},{lat},{zoom},{bearing},{pitch}/{width}x{height}{@2x}?access_token={access_token}
-    const mapboxStaticUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},19.5/1024x1024?access_token=${mapboxgl.accessToken}`;
+   const mapboxStaticUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center[0]},${center[1]},19.5/1024x1024?access_token=${mapboxgl.accessToken}`;
     
     loader.load(mapboxStaticUrl, texture => {
         const plane = new THREE.Mesh(
@@ -158,7 +156,7 @@ function setupControls() {
             
             updateCameraPosition();
         } else if (state.isDrawing && state.points.length > 0) {
-            // Update preview lines while drawing
+            
             updatePreviewLines(e);
         }
 
@@ -247,9 +245,7 @@ function updatePreviewLines(event) {
         const mousePoint = intersects[0].point;
         
         clearPreviewLines();
-        
-        // 1. Line from last point to mouse (current drawing line)
-        if (state.points.length >= 1) {
+      if (state.points.length >= 1) {
             const lastPoint = state.points[state.points.length - 1];
             const currentLinePoints = [
                 new THREE.Vector3(lastPoint.x, 0.15, lastPoint.z),
@@ -330,11 +326,9 @@ function setupDrawing() {
     const threshold = 3.0; // Distance threshold for closing a polygon
 
     state.renderer.domElement.addEventListener('click', event => {
-        // Prevent drawing/extrusion if sidebar toggle is clicked or other UI elements
-        if (event.target.closest('#startDraw, #extrude, #reset, #heightInput')) return;
+    if (event.target.closest('#startDraw, #extrude, #reset, #heightInput')) return;
 
-        // Handle shape clicking for extrusion when not in drawing mode
-        if (!state.isDrawing) {
+   if (!state.isDrawing) {
             const rect = state.renderer.domElement.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -370,8 +364,7 @@ function setupDrawing() {
 
         const point = intersects[0].point;
         
-        // Check if clicking near the first point to close polygon
-        if (state.points.length > 2 && point.distanceTo(state.points[0]) < threshold) {
+      if (state.points.length > 2 && point.distanceTo(state.points[0]) < threshold) {
             state.isDrawing = false;
             clearPreviewLines(); // Clear all preview lines
             
@@ -381,11 +374,7 @@ function setupDrawing() {
             
             // Add final line to close the polygon
             if (state.points.length > 2) {
-                // Remove the last line segment that was dynamically updated
-                // No need to remove it if we're keeping all lines/points until extrusion
-                
-                // Add the final closing line segment explicitly
-                const lastPoint = state.points[state.points.length - 1];
+           const lastPoint = state.points[state.points.length - 1];
                 const firstPoint = state.points[0];
                 const closingLineGeometry = new THREE.BufferGeometry().setFromPoints([
                     new THREE.Vector3(lastPoint.x, 0.1, lastPoint.z),
@@ -502,13 +491,10 @@ function extrudeShape(shapeMesh, height) {
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         const material = new THREE.MeshLambertMaterial({ 
             color: 0x4a90e2, 
-            // transparent: true, 
-            opacity: 1
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        // Extrusion happens along the Z-axis of the shape, so we need to adjust
-        mesh.position.y = 0; // The base of the extrusion is at Y=0
+       mesh.position.y = 0; // The base of the extrusion is at Y=0
         mesh.rotation.x = Math.PI/2; // Orient it correctly with the ground plane
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -525,10 +511,7 @@ function extrudeShape(shapeMesh, height) {
         // Add the new extruded mesh to tracked shapes
         mesh.userData.isExtruded = true; // Mark as extruded
         state.shapeMeshes.push(mesh); 
-
-        // Raise the associated points and lines to the extrusion height
-        // Get the associated points/lines from the shapeMesh's userData
-        const associatedPoints = shapeMesh.userData.associatedPoints || [];
+  const associatedPoints = shapeMesh.userData.associatedPoints || [];
         const associatedLines = shapeMesh.userData.associatedLines || [];
 
         associatedPoints.forEach(pMesh => {
@@ -656,8 +639,6 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = 'Drawing mode active - Click to place points';
             status.className = 'draw-status active';
 
-            // Clear any existing drawing lines and points when starting new drawing
-            // These were not cleared when drawing finished, so clear them now for a new drawing
             state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
             state.lineMeshes = [];
             state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
@@ -717,17 +698,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('reset').addEventListener('click', () => {
         if (confirm('Reset the entire scene? This will clear all your work.')) {
-            // Remove all custom meshes from the scene
-            state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
+          state.pointMeshes.forEach(mesh => state.scene.remove(mesh));
             state.pointMeshes = [];
             state.lineMeshes.forEach(mesh => state.scene.remove(mesh));
             state.lineMeshes = [];
             state.shapeMeshes.forEach(mesh => state.scene.remove(mesh));
             state.shapeMeshes = []; // Clear flat and extruded shapes
             
-            // Also explicitly remove any extruded buildings if they weren't removed by shapeMeshes clearing
-            // This is a safety net in case of mixed object types in shapeMeshes array
-            state.scene.children.filter(obj => obj.geometry && obj.geometry.type === 'ExtrudeGeometry')
+          state.scene.children.filter(obj => obj.geometry && obj.geometry.type === 'ExtrudeGeometry')
                           .forEach(obj => state.scene.remove(obj));
 
             state.points = [];
